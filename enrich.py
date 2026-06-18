@@ -85,22 +85,34 @@ def _fetch_html(url, timeout=12):
 
 
 def enrich_lead(lead, timeout=12):
-    """Devuelve una copia del lead con 'email' y 'has_site_chatbot' añadidos."""
+    """Devuelve una copia del lead con 'email' y 'has_site_chatbot' añadidos.
+
+    Escanea el chatbot sobre la UNIÓN de las páginas visitadas (home + contacto),
+    porque el widget suele estar solo en la página de contacto.
+    """
     out = dict(lead)
     out["email"] = ""
     out["has_site_chatbot"] = False
     website = lead.get("website")
     if not website:
         return out
-    html = _fetch_html(website, timeout)
-    if html:
-        out["has_site_chatbot"] = detect_chatbot(html)
-        emails = extract_emails(html)
+
+    home = _fetch_html(website, timeout)
+    has_bot = detect_chatbot(home)
+    emails = extract_emails(home)
+
+    # Visita páginas de contacto hasta tener email Y chatbot (o agotarlas).
+    for path in _CONTACT_PATHS:
+        if emails and has_bot:
+            break
+        h = _fetch_html(urljoin(website, path), timeout)
+        if not h:
+            continue
+        if not has_bot:
+            has_bot = detect_chatbot(h)
         if not emails:
-            for path in _CONTACT_PATHS:
-                h2 = _fetch_html(urljoin(website, path), timeout)
-                emails = extract_emails(h2)
-                if emails:
-                    break
-        out["email"] = emails[0] if emails else ""
+            emails = extract_emails(h)
+
+    out["has_site_chatbot"] = has_bot
+    out["email"] = emails[0] if emails else ""
     return out
