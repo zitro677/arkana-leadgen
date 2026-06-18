@@ -74,9 +74,10 @@ def qualify_lead(lead, ciudad, categoria, retries=1):
         try:
             text = _chat([{"role": "user", "content": prompt}])
             data = _extract_json(text)
-            data.setdefault("google_maps_url", lead.get("url", ""))
-            data.setdefault("rating", lead.get("totalScore", 0))
-            data.setdefault("total_reviews", lead.get("reviewsCount", 0))
+            # Rellenar desde el raw si el modelo los dejó vacíos/ausentes.
+            data["google_maps_url"] = data.get("google_maps_url") or lead.get("url", "")
+            data["rating"] = data.get("rating") or lead.get("totalScore", 0)
+            data["total_reviews"] = data.get("total_reviews") or lead.get("reviewsCount", 0)
             return data
         except Exception as e:
             if attempt < retries:
