@@ -15,6 +15,18 @@ def test_detect_chatbot_whatsapp_link_is_not_bot():
     assert enrich.detect_chatbot('<a href="https://wa.me/573001112233">Escríbenos</a>') is False
 
 
+def test_detect_chatbot_custom_widget():
+    # Chatbot propio/self-hosted (como arkanatech): varias señales DOM de chat.
+    html = ('<div class="ark-chat-window"><div class="chat-messages"></div>'
+            '<input class="chat-input"></div>')
+    assert enrich.detect_chatbot(html) is True
+
+
+def test_detect_chatbot_single_mention_not_bot():
+    # Una sola mención suelta de "chatbot" NO debe contar (evita falso positivo).
+    assert enrich.detect_chatbot('<p>Ofrecemos un chatbot para tu negocio</p>') is False
+
+
 def test_detect_chatbot_none():
     assert enrich.detect_chatbot('<html><body>Bienvenido</body></html>') is False
 

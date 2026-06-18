@@ -32,6 +32,16 @@ CHATBOT_SIGNATURES = (
     "jivosite", "jivochat",
 )
 
+# Señales DOM genéricas de un widget de chat embebido (custom / self-hosted).
+# Se exige >=2 distintas para evitar falsos positivos por una mención suelta.
+_GENERIC_CHAT_SIGNALS = (
+    "chat-window", "chatwindow", "chat-widget", "chatwidget",
+    "chat-container", "chat-messages", "chat-message", "chat-input",
+    "chatinput", "chat-launcher", "chat-bubble", "chat-popup",
+    "chat-toggle", "chat-box", "chatbox", "chat-panel", "chat-header",
+    "chatbot", "live-chat", "livechat",
+)
+
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 
 # Subcadenas que indican que el "email" es basura (assets, placeholders, libs).
@@ -48,9 +58,13 @@ _UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 
 
 def detect_chatbot(html):
-    """True si el HTML contiene la firma de algún widget de chatbot conocido."""
+    """True si hay un widget de chat: proveedor conocido (1 firma) o
+    widget propio/embebido (>=2 señales DOM genéricas de chat)."""
     low = (html or "").lower()
-    return any(sig in low for sig in CHATBOT_SIGNATURES)
+    if any(sig in low for sig in CHATBOT_SIGNATURES):
+        return True
+    hits = sum(1 for s in _GENERIC_CHAT_SIGNALS if s in low)
+    return hits >= 2
 
 
 def extract_emails(html):
