@@ -42,29 +42,40 @@ Califica este negocio y devuelve SOLO JSON válido (sin markdown, sin texto extr
 Negocio:
 - Nombre: {nombre}
 - Teléfono: {telefono}
+- Email: {email}
+- Tiene website: {has_web}
 - Website: {website}
+- Chatbot detectado en su web: {has_chatbot}
 - Rating: {rating}
 - Total reseñas: {reviews}
 - Ciudad: {ciudad}
 - Categoría: {categoria}
 - Descripción GMB: {descripcion}
 
-Scoring v1 (solo estas 3 señales):
-- Sin website (null/vacío): +30  -> señal "no_website"
-- Descripción sin WhatsApp/chatbot/bot: +25 -> señal "no_whatsapp_bot"
-- Sin URL de reserva/booking visible: +15 -> señal "no_booking_system"
+Scoring v2 (suma los puntos que apliquen):
+- no_website (NO tiene website): +40
+- no_site_chatbot (tiene website pero "Chatbot detectado"=No): +35
+- no_booking_system (sin URL de reserva/booking visible): +15
+- email_found (tiene email): +10
+Nota: "no_website" y "no_site_chatbot" son excluyentes (si no hay web, no se evalúa chatbot).
 Prioridad: score>=55 -> alta, 30-54 -> media, <30 -> baja.
 
+El pitch_angle: frase corta del dolor detectado + servicio Arkana sugerido.
+
 Devuelve exactamente este esquema (rellena los valores):
-{{"empresa":"","categoria":"{categoria}","ciudad":"{ciudad}","telefono":"","website":null,"google_maps_url":"","rating":0.0,"total_reviews":0,"señales":[],"score":0,"pitch_angle":"","prioridad":"baja"}}"""
+{{"empresa":"","categoria":"{categoria}","ciudad":"{ciudad}","telefono":"","email":"","website":null,"google_maps_url":"","rating":0.0,"total_reviews":0,"señales":[],"score":0,"pitch_angle":"","prioridad":"baja"}}"""
 
 
 def qualify_lead(lead, ciudad, categoria, retries=1):
-    """Califica un lead vía Hermes. Devuelve dict del esquema o None si falla."""
+    """Califica un lead (ya enriquecido) vía Hermes. Devuelve dict o None."""
+    website = lead.get("website")
     prompt = QUALIFY_PROMPT.format(
         nombre=lead.get("title", "N/A"),
         telefono=lead.get("phone", "N/A"),
-        website=lead.get("website") or "ninguno",
+        email=lead.get("email") or "ninguno",
+        has_web="Sí" if website else "No",
+        website=website or "ninguno",
+        has_chatbot="Sí" if lead.get("has_site_chatbot") else "No",
         rating=lead.get("totalScore", "N/A"),
         reviews=lead.get("reviewsCount", 0),
         ciudad=ciudad, categoria=categoria,
@@ -74,10 +85,11 @@ def qualify_lead(lead, ciudad, categoria, retries=1):
         try:
             text = _chat([{"role": "user", "content": prompt}])
             data = _extract_json(text)
-            # Rellenar desde el raw si el modelo los dejó vacíos/ausentes.
+            # Rellenar desde el raw/enriquecido si el modelo los dejó vacíos.
             data["google_maps_url"] = data.get("google_maps_url") or lead.get("url", "")
             data["rating"] = data.get("rating") or lead.get("totalScore", 0)
             data["total_reviews"] = data.get("total_reviews") or lead.get("reviewsCount", 0)
+            data["email"] = data.get("email") or lead.get("email", "")
             return data
         except Exception as e:
             if attempt < retries:
@@ -101,10 +113,10 @@ def write_leads_to_sheet(leads, sheet_id, tab="leads"):
         return True
     rows = [[
         l.get("empresa", ""), l.get("ciudad", ""), l.get("categoria", ""),
-        l.get("telefono", ""), l.get("website") or "", l.get("rating", ""),
-        l.get("total_reviews", ""), l.get("score", ""), l.get("prioridad", ""),
-        ", ".join(l.get("señales", [])), l.get("pitch_angle", ""),
-        l.get("google_maps_url", ""),
+        l.get("telefono", ""), l.get("email", ""), l.get("website") or "",
+        l.get("rating", ""), l.get("total_reviews", ""), l.get("score", ""),
+        l.get("prioridad", ""), ", ".join(l.get("señales", [])),
+        l.get("pitch_angle", ""), l.get("google_maps_url", ""),
     ] for l in leads]
     values = json.dumps(rows, ensure_ascii=False)
     try:

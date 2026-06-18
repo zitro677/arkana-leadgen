@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from hermes_client import qualify_lead, write_leads_to_sheet
+from enrich import enrich_lead
 from notify import send_telegram
 
 APIFY_KEY = os.getenv("APIFY_KEY", "")
@@ -96,7 +97,7 @@ def _backup_local(leads):
     stamp = datetime.now().strftime("%Y%m%d_%H%M")
     with open(f"leads_{stamp}.json", "w", encoding="utf-8") as f:
         json.dump(leads, f, ensure_ascii=False, indent=2)
-    cols = ["empresa", "ciudad", "categoria", "telefono", "website", "rating",
+    cols = ["empresa", "ciudad", "categoria", "telefono", "email", "website", "rating",
             "total_reviews", "score", "prioridad", "pitch_angle", "google_maps_url"]
     with open(f"leads_{stamp}.csv", "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
@@ -134,6 +135,7 @@ def run_pipeline(targets, min_score=MIN_SCORE):
         total_raw += len(raw)
         print(f"   -> {len(raw)} negocios ({len(nuevos)} nuevos)")
         for r in nuevos:
+            r = enrich_lead(r)  # añade email + has_site_chatbot visitando la web
             q = qualify_lead(r, ciudad, categoria)
             if q:
                 all_leads.append(q)

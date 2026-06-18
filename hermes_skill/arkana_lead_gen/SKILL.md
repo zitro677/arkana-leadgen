@@ -1,7 +1,7 @@
 ---
 name: arkana_lead_gen
 description: Califica negocios locales por su madurez para automatización con IA (señales + scoring) y devuelve JSON estructurado para Arkana Tech.
-version: 1.0.0
+version: 2.0.0
 platforms: [linux]
 metadata:
   hermes:
@@ -12,8 +12,8 @@ metadata:
 # SKILL: arkana_lead_gen
 
 ## Purpose
-Califica negocios locales (previamente scrapeados de Google Maps) por su
-disposición a automatización con IA, y devuelve JSON estructurado.
+Califica negocios locales (scrapeados de Google Maps y enriquecidos con datos
+de su web) por su disposición a automatización con IA, y devuelve JSON.
 
 ## CATEGORIES
 - restaurantes
@@ -25,12 +25,13 @@ disposición a automatización con IA, y devuelve JSON estructurado.
 - car_detailing
 - landscaping_irrigation
 
-## Qualification Signals (v1 — solo estas 3 son evaluables sin reviews)
-1. no_website: campo website vacío o null
-2. no_whatsapp_bot: la descripción GMB no menciona chatbot/WhatsApp/bot
-3. no_booking_system: no hay URL de reserva/booking visible
-
-(Las señales poor_review_response y outdated_hours son v2; NO sumarlas en v1.)
+## Qualification Signals (v2)
+1. no_website: NO tiene website
+2. no_site_chatbot: tiene website pero SIN chatbot detectado en ella
+   (un simple link a WhatsApp NO cuenta como chatbot)
+3. no_booking_system: sin URL de reserva/booking visible
+4. email_found: se encontró un email de contacto
+(no_website y no_site_chatbot son excluyentes)
 
 ## Output Schema (devolver SOLO este JSON, sin markdown)
 {
@@ -38,6 +39,7 @@ disposición a automatización con IA, y devuelve JSON estructurado.
   "categoria": string,
   "ciudad": string,
   "telefono": string,
+  "email": string,
   "website": string | null,
   "google_maps_url": string,
   "rating": float,
@@ -48,12 +50,13 @@ disposición a automatización con IA, y devuelve JSON estructurado.
   "prioridad": "alta" | "media" | "baja"
 }
 
-## Scoring Logic (v1)
-- no_website: +30
-- no_whatsapp_bot: +25
+## Scoring Logic (v2)
+- no_website: +40
+- no_site_chatbot: +35
 - no_booking_system: +15
+- email_found: +10
 Score >= 55 -> alta | 30-54 -> media | <30 -> baja
 
 ## pitch_angle
 Frase corta y específica del dolor detectado + servicio Arkana sugerido
-(ej. "Sin web con 80 reseñas — bot de reservas por WhatsApp 24/7").
+(ej. "Web con 87 reseñas pero sin chatbot — bot de reservas por WhatsApp 24/7").
