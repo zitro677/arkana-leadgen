@@ -1,0 +1,8 @@
+.venv/
+.env
+seen_leads.json
+leads_*.json
+leads_*.csv
+cron.log
+__pycache__/
+*.pyc
