@@ -34,7 +34,7 @@ TARGETS = [
 ]
 
 
-def scrape_google_maps(query, max_results=MAX_BATCH):
+def scrape_google_maps(query, max_results=MAX_BATCH, retries=1):
     """Llama al Google Maps Scraper de Apify. v1: sin reviews."""
     if not APIFY_KEY:
         print("  !  APIFY_KEY no configurado — usando datos de prueba")
@@ -48,13 +48,18 @@ def scrape_google_maps(query, max_results=MAX_BATCH):
         "includeReviews": False,
         "includeImages": False,
     }
-    try:
-        r = requests.post(url, json=payload, params={"token": APIFY_KEY}, timeout=180)
-        r.raise_for_status()
-        return r.json()
-    except requests.RequestException as e:
-        print(f"  X  Apify error: {e}")
-        return []
+    for attempt in range(retries + 1):
+        try:
+            r = requests.post(url, json=payload, params={"token": APIFY_KEY}, timeout=300)
+            r.raise_for_status()
+            return r.json()
+        except requests.RequestException as e:
+            if attempt < retries:
+                print(f"  !  Apify timeout/error (intento {attempt + 1}), reintentando...")
+                time.sleep(5)
+                continue
+            print(f"  X  Apify error: {e}")
+            return []
 
 
 def _mock_data(query):
