@@ -22,16 +22,43 @@ MIN_SCORE = int(os.getenv("MIN_SCORE", "55"))
 MAX_BATCH = int(os.getenv("MAX_BATCH", "30"))
 SEEN_FILE = os.getenv("SEEN_FILE", "seen_leads.json")
 
-TARGETS = [
-    ("Bogotá Colombia", "restaurantes",             "restaurantes Bogotá"),
-    ("Bogotá Colombia", "inmobiliarias",            "inmobiliarias Bogotá"),
-    ("Bogotá Colombia", "administracion_conjuntos", "administración conjuntos residenciales Bogotá"),
-    ("Bogotá Colombia", "talleres_mecanicos",       "talleres mecánicos Bogotá"),
-    ("Bogotá Colombia", "clinicas_dentales",        "clínicas dentales Bogotá"),
-    ("Bogotá Colombia", "firmas_juridicas",         "firmas jurídicas abogados Bogotá"),
-    ("Bogotá Colombia", "car_detailing",            "car detailing lavado autos Bogotá"),
-    ("Bogotá Colombia", "landscaping_irrigation",   "jardinería riego paisajismo Bogotá"),
+# Cada grupo: mitad Bogotá (es) / mitad Nashville TN (en).
+# Grupo A = mejores prospectos · Grupo B = medianos/pequeños.
+GROUP_A = [
+    ("Bogotá Colombia",     "restaurantes",       "restaurantes Bogotá"),
+    ("Bogotá Colombia",     "centros_salud",      "centros médicos clínicas Bogotá"),
+    ("Bogotá Colombia",     "bufetes_juridicos",  "firmas jurídicas abogados Bogotá"),
+    ("Bogotá Colombia",     "universidades",      "universidades y centros educativos Bogotá"),
+    ("Bogotá Colombia",     "inmobiliarias",      "inmobiliarias Bogotá"),
+    ("Bogotá Colombia",     "concesionarios",     "concesionarios de autos Bogotá"),
+    ("Nashville Tennessee", "restaurantes",       "restaurants Nashville TN"),
+    ("Nashville Tennessee", "centros_salud",      "medical clinics health centers Nashville TN"),
+    ("Nashville Tennessee", "bufetes_juridicos",  "law firms attorneys Nashville TN"),
+    ("Nashville Tennessee", "universidades",      "universities education centers Nashville TN"),
+    ("Nashville Tennessee", "inmobiliarias",      "real estate agencies Nashville TN"),
+    ("Nashville Tennessee", "concesionarios",     "car dealerships Nashville TN"),
 ]
+GROUP_B = [
+    ("Bogotá Colombia",     "salones_belleza",    "salones de belleza Bogotá"),
+    ("Bogotá Colombia",     "talleres_mecanicos", "talleres mecánicos Bogotá"),
+    ("Bogotá Colombia",     "car_detailing",      "car detailing lavado autos Bogotá"),
+    ("Bogotá Colombia",     "clinicas_dentales",  "clínicas dentales Bogotá"),
+    ("Bogotá Colombia",     "gimnasios",          "gimnasios Bogotá"),
+    ("Bogotá Colombia",     "barberias",          "barberías Bogotá"),
+    ("Nashville Tennessee", "salones_belleza",    "beauty salons Nashville TN"),
+    ("Nashville Tennessee", "talleres_mecanicos", "auto repair shops Nashville TN"),
+    ("Nashville Tennessee", "car_detailing",      "car detailing Nashville TN"),
+    ("Nashville Tennessee", "clinicas_dentales",  "dental clinics Nashville TN"),
+    ("Nashville Tennessee", "gimnasios",          "gyms Nashville TN"),
+    ("Nashville Tennessee", "barberias",          "barber shops Nashville TN"),
+]
+TARGETS = GROUP_A + GROUP_B  # lista completa (para --all y filtros)
+
+
+def todays_group():
+    """Rotación alterna por día: ordinal par -> Grupo A, impar -> Grupo B."""
+    from datetime import date
+    return GROUP_A if date.today().toordinal() % 2 == 0 else GROUP_B
 
 
 def scrape_google_maps(query, max_results=MAX_BATCH, retries=1):
@@ -158,14 +185,23 @@ def run_pipeline(targets, min_score=MIN_SCORE):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Arkana Lead Gen v1")
+    parser = argparse.ArgumentParser(description="Arkana Lead Gen")
     parser.add_argument("--ciudad",    help="Filtrar por ciudad")
     parser.add_argument("--categoria", help="Filtrar por categoría")
+    parser.add_argument("--group", choices=["A", "B", "a", "b"], help="Forzar Grupo A o B")
+    parser.add_argument("--all", action="store_true", help="Correr ambos grupos")
     parser.add_argument("--score", type=int, default=MIN_SCORE, help="Min score")
     parser.add_argument("--test", action="store_true", help="Solo 1 target")
     args = parser.parse_args()
 
-    targets = TARGETS
+    # Selección base: --all > --group > rotación del día (default del cron).
+    if args.all:
+        targets = GROUP_A + GROUP_B
+    elif args.group:
+        targets = GROUP_A if args.group.upper() == "A" else GROUP_B
+    else:
+        targets = todays_group()
+
     if args.ciudad:
         targets = [t for t in targets if args.ciudad.lower() in t[0].lower()]
     if args.categoria:
