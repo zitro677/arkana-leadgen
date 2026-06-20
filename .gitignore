@@ -4,5 +4,6 @@ seen_leads.json
 leads_*.json
 leads_*.csv
 cron.log
+drafted.json
 __pycache__/
 *.pyc

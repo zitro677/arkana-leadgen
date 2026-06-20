@@ -186,15 +186,19 @@ Expected: instala sin errores.
 
 ```python
 import base64
+from email import message_from_bytes
+
 import gmail_client as gc
 
-def test_build_mime_encodes_subject_and_to():
-    payload = gc.build_mime("dest@x.com", "Asunto Demo", "Hola cuerpo")
-    raw = payload["message"]["raw"]
-    decoded = base64.urlsafe_b64decode(raw.encode()).decode("utf-8")
-    assert "dest@x.com" in decoded
-    assert "Asunto Demo" in decoded
-    assert "Hola cuerpo" in decoded
+def test_build_mime_roundtrips_to_subject_and_utf8_body():
+    # MIMEText utf-8 codifica el cuerpo en base64; hay que decodificarlo.
+    payload = gc.build_mime("dest@x.com", "Asunto Demo", "Hola cuerpo áéíóú ñ")
+    raw = base64.urlsafe_b64decode(payload["message"]["raw"].encode())
+    msg = message_from_bytes(raw)
+    assert msg["To"] == "dest@x.com"
+    assert msg["Subject"] == "Asunto Demo"
+    body = msg.get_payload(decode=True).decode("utf-8")
+    assert "Hola cuerpo áéíóú ñ" in body
 ```
 
 - [ ] **Step 3: Ejecutar para ver que falla**
